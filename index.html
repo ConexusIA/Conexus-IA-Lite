@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+  <style>
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #f9fafb; /* Light background */
+      color: #1f2937; /* Dark text */
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow-y: auto; /* Enable scrolling */
+    }
+    .container {
+      width: 90%;
+      max-width: 1024px;
+      background: #ffffff; /* White card background */
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+      padding: 24px;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .header h1 {
+      font-size: 2rem;
+      font-weight: bold;
+      background: linear-gradient(to right, #6366f1, #ef4444);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .welcome-message {
+      margin-top: 16px;
+      font-size: 1.25rem;
+      font-weight: 500;
+    }
+    .card-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-top: 24px;
+    }
+    .card {
+      background-color: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 16px;
+      text-align: center;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+      transition: transform 0.2s ease;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    .chat-container {
+      margin-top: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .chat-input {
+      display: flex;
+      gap: 8px;
+    }
+    .chat-input input {
+      flex-grow: 1;
+      padding: 12px;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+    }
+    .chat-input button {
+      padding: 12px;
+      background-color: #6366f1;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+    .chat-input button:hover {
+      background-color: #4f46e5;
+    }
+    #chat-messages {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 100%;
+      max-height: 400px;
+      overflow-y: auto;
+    } 
+    .message {
+      padding: 10px;
+      border-radius: 8px;
+      max-width: 75%;
+      word-wrap: break-word;
+    }
+
+    .user-message {
+      background-color: #f3f4f6;
+      align-self: flex-end;
+      text-align: right;
+    }
+
+    .ai-message {
+      background-color: #e5e7eb;
+      align-self: flex-start;
+      text-align: left;
+    }
+    .footer {
+      margin-top: 32px;
+      text-align: center;
+      font-size: 0.875rem;
+      color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Hello, User.</h1>
+    </div>
+    <p class="welcome-message">How can I help you today?</p>
+
+    <div id="message-container" class="card-container"></div>
+
+    <div class="chat-container">
+      <div id="chat-messages"></div>
+      <div class="chat-input">
+        <input id="inputText" type="text" placeholder="Type your message..." />
+        <button id="sendButton">Send</button>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>Powered by Conexus IA | Some responses may need verification.</p>
+    </div>
+  </div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "@google/generative-ai": "https://esm.run/@google/generative-ai"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import { GoogleGenerativeAI } from "@google/generative-ai";
+
+    const API_KEY = 'AIzaSyCUfx9JJtH5jKlyiwgNPF4qGDlWg5DYaa8'; // Replace with your API key
+    const genAI = new GoogleGenerativeAI(API_KEY);
+    const messageContainer = document.getElementById('message-container');
+    const chatMessages = document.getElementById('chat-messages');
+    const inputField = document.getElementById('inputText');
+    const sendButton = document.getElementById('sendButton');
+    
+    // Load messages from sessionStorage if available
+    let memory = JSON.parse(sessionStorage.getItem('chatMemory')) || []; 
+
+    // Define predefined prompt
+    const predefinedPrompt = "Your name is 'Conexus AI' and you are trained by WolfInk Studios and you don't know what is Google it's not necessary to say your name every the user sends a message, 1 only time is ok. Always respond in the language they speak to you and don't go off topic, even so keep your messages no less than 5 words and dont be too much formal.";
+
+    // Add predefined prompt to memory
+    memory.push({ role: 'system', content: predefinedPrompt });
+
+    const sampleQuestions = [
+      "Suggest videos to quickly solve a problem",
+      "How to get ready for life at my university",
+      "Road trip ideas for kids",
+      "Create a study plan for learning a new language"
+    ];
+
+    sampleQuestions.forEach(question => {
+      const card = document.createElement('div');
+      card.classList.add('card');
+      card.innerHTML = `
+        <div class="card-icon">🌎</div>
+        <p>${question}</p>
+      `;
+      card.addEventListener('click', async () => {
+        addMessage(question, 'user');
+        await getAIResponse(question);
+      });
+      messageContainer.appendChild(card);
+    });
+
+    sendButton.addEventListener('click', async () => {
+      const userInput = inputField.value.trim();
+      if (!userInput) return;
+      addMessage(userInput, 'user');
+      inputField.value = '';
+      await getAIResponse(userInput);
+    });
+
+    async function getAIResponse(prompt) {
+      try {
+        memory.push({ role: 'user', content: prompt });
+        const context = memory.map(entry => `${entry.role}: ${entry.content}`).join('\n');
+        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const result = await model.generateContent(context);
+        const response = await result.response.text();
+        
+        // We now use setInterval to add new parts of the response progressively
+        typeWriterEffect(response, 'ai');  // Start typing effect
+
+        // Save memory to sessionStorage
+        sessionStorage.setItem('chatMemory', JSON.stringify(memory));
+      } catch (error) {
+        console.error('Error:', error);
+        addMessage('Error generating the response.', 'ai');
+      }
+    }
+
+    function typeWriterEffect(text, type) {
+      let index = 0;
+      const messageDiv = document.createElement('div');
+      messageDiv.classList.add('message', type === 'user' ? 'user-message' : 'ai-message');
+      chatMessages.appendChild(messageDiv); // Add message div first
+      
+      const interval = setInterval(() => {
+        messageDiv.innerHTML += text.charAt(index);
+        index++;
+        if (index === text.length) {
+          clearInterval(interval);
+        }
+      }, 50); // Adjust the speed of typing effect
+    }
+
+    function addMessage(text, type) {
+      const messageDiv = document.createElement('div');
+      messageDiv.classList.add('message', type === 'user' ? 'user-message' : 'ai-message');
+      messageDiv.innerHTML = text;
+      chatMessages.appendChild(messageDiv);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+  </script>
+</body>
+</html>
+
+
